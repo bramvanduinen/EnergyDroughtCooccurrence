@@ -242,7 +242,7 @@ def plot_heatmap(co_occurrences, countries, window, dt_event, dt_cooccur, dir_Fi
 
     plt.savefig(f'{dir_Figures}/clusteredheatmap_co_occurrence_w={window}_dte={dt_event}_dtc={dt_cooccur}.png', dpi=300, bbox_inches='tight')
 
-def plot_clustermap(co_occurrences, countries):
+def plot_clustermap(co_occurrences, countries, rundate):
     co_occurrences_plot = co_occurrences.copy()
     np.fill_diagonal(co_occurrences_plot.values, np.nan) # fill main diagonal with nans, countries cannot co-occur with themselves
 
@@ -261,8 +261,8 @@ def plot_clustermap(co_occurrences, countries):
     # plt.savefig(f'{dir_Figures}/clusteredheatmap_co_occurrence_w={WINDOW}_dte={DT_EVENT}_dtc={DT_COOCCUR}.png', dpi=300, bbox_inches='tight')
 
     # only had to be done once for the residual heatmap. Rest is not clustered by sns anymore, but follows that clustering
-    # row_order = cg.dendrogram_row.reordered_ind
-    # np.save('../Data/row_order_residual.npy', row_order) 
+    row_order = cg.dendrogram_row.reordered_ind
+    np.save(f'../Data/row_order_residual_v{rundate}.npy', row_order) 
 
 def save_data(co_occurrences, df_cooccurrences, window, rundate, dir_Results):
     np.save(f'{dir_Results}/co_occurrences_w={window}_{rundate}.npy', co_occurrences.values)
@@ -315,3 +315,72 @@ def analysis(variable, num_events, window, dt_event, dt_cooccur):
     co_occurrences = find_non_producers(co_occurrences, data_prod, homedir)
     plot_heatmap(co_occurrences, countries, window, dt_event, dt_cooccur, dir_Figures, homedir)
     save_data(co_occurrences, df_cooccurrences, window, rundate, dir_Results)
+
+def analysis_clustermap(variable, num_events, window, dt_event, dt_cooccur):
+    print(f'Starting analysis for {variable}')
+
+    date_now = datetime.now()
+    rundate = '%4.4i%2.2i%2.2i' % (date_now.year,date_now.month,date_now.day)
+
+    if variable == 'wind' or variable == 'sun':
+        variabletype = 'supply' # changes direction of sorting. For supply you want minima, for demand you want maxima
+    if variable == 'residual' or variable == 'demand':
+        variabletype = 'demand' # changes direction of sorting. For supply you want minima, for demand you want maxima
+    
+    homedir = '/usr/people/duinen/MSc-thesis/'
+    # Create folders for Figures from today
+    dir_Figures = f'{homedir}Results/Figures/{rundate}/{variable}'
+
+    if not os.path.exists(dir_Figures):
+        print('Creating dir %s' % dir_Figures)
+        os.makedirs(dir_Figures)
+
+    dir_Results = f'{homedir}Results/Data/{rundate}/{variable}'
+
+    if not os.path.exists(dir_Results):
+        print('Creating dir %s' % dir_Results)
+        os.makedirs(dir_Results)
+
+    data_prod = xr.open_mfdataset(ENERGY_PATH + '???' + '_LENTIS_PD_02_v4.nc', combine='nested', concat_dim='country', preprocess=lambda ds: add_filename(ds, variable))
+    data_prod = data_prod.drop_sel(country = [0, 23, 28, 38]) # drop countries that are not properly represented in the analysis
+
+    num_countries = np.shape(data_prod)[0]
+    print(f"The number of analyzed countries is {num_countries}.")
+
+    data_prod_ma = data_prod.rolling(time=window).mean() # rolling average over window
+    countries = data_prod_ma.country_name.values
+
+    data_prod_stack = data_prod_ma.stack(event=('time', 'runs'))
+    if variabletype == 'supply': #for supply an event is a minimum
+        sorted_indices = data_prod_stack.compute().argsort()
+    elif variabletype == 'demand': #for demand an event is a maximum
+        sorted_indices = (-data_prod_stack.compute()).argsort()
+
+    ds_events = calc_events(data_prod_stack, sorted_indices, num_countries, countries, num_events, dt_event)
+    plot_basics(ds_events, variable, window, dt_event, countries, dir_Figures)
+    co_occurrences, df_cooccurrences = calc_cooccurrences(ds_events, num_countries, countries, num_events, dt_cooccur)
+    # co_occurrences = find_non_producers(co_occurrences, data_prod, homedir)
+    
+    co_occurrences_plot = co_occurrences.copy()
+    np.fill_diagonal(co_occurrences_plot.values, np.nan) # fill main diagonal with nans, countries cannot co-occur with themselves
+
+    max_co_oc = np.max(co_occurrences_plot).values + 1 # add one so that maximum is not grey
+
+    # Create a colormap that maps main diagonal to grey (above the maximum co-occurrence between different countries) and the rest of the values to the original colormap
+    cmap = matplotlib.colormaps["Reds"]
+    cmap.set_over('0.8')
+
+    # Plot the clustermap with the modified colormap and vmin set to 0
+    cg = sns.clustermap(co_occurrences, cmap=cmap, method='ward', xticklabels=countries, yticklabels=countries, vmax=max_co_oc)
+    cg.ax_row_dendrogram.set_visible(False)
+    cg.ax_col_dendrogram.set_visible(False)
+    x0, _y0, _w, _h = cg.cbar_pos
+    cg.ax_cbar.set_position([1, 0.06, 0.025, 0.74])
+    # plt.savefig(f'{dir_Figures}/clusteredheatmap_co_occurrence_w={WINDOW}_dte={DT_EVENT}_dtc={DT_COOCCUR}.png', dpi=300, bbox_inches='tight')
+
+    # only had to be done once for the residual heatmap. Rest is not clustered by sns anymore, but follows that clustering
+    row_order = cg.dendrogram_row.reordered_ind
+    print(row_order)
+    np.save(f'../Data/row_order_residual_v{rundate}.npy', row_order) 
+    # plot_clustermap(co_occurrences, countries, rundate)
+    # save_data(co_occurrences, df_cooccurrences, window, rundate, dir_Results)
