@@ -79,7 +79,7 @@ def preprocess_data(filepath, variable):
     ds = combine_variables(ds, variable)
     return ds
 
-def load_data(energy_path, variable, stacked = True):
+def load_data(energy_path, variable, runname, stacked = True):
     """
     Load and preprocess multiple datasets, concatenating them along the 'country' dimension.
 
@@ -91,14 +91,12 @@ def load_data(energy_path, variable, stacked = True):
     Returns:
         xarray.Dataset: Concatenated and preprocessed dataset.
     """
-    filepaths = sorted(glob.glob(energy_path + '???' + '_LENTIS_PD_02_v4.nc'))
+    filepaths = sorted(glob.glob(energy_path + '???' + '_' + runname + '.nc'))
     datasets = [preprocess_data(fp, variable) for fp in filepaths]
     ds = xr.concat(datasets, dim='country')
     ds = ds.where(ds['time'].dt.month.isin([10, 11, 12, 1, 2, 3, 4]), drop=True)
-    ds = ds.drop_sel(country=[0, 19, 23, 25, 28, 38])  # drop countries that are not properly represented in the analysis
+    ds = ds.drop_sel(country=[19, 23])  # drop countries that are not properly represented in the analysis
 
-    #TODO: Implement 7 day moving average, and weekly sampling of that!
-    # ds = ds.rolling(time=WINDOW, center=True).mean().dropna(dim='time')
     if stacked:
         return ds.stack(event=('runs', 'time'))
     else:
