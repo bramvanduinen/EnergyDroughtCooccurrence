@@ -1,11 +1,11 @@
-/src/Old/
 /Old/
 /Results/
-/src/Test.ipynb
-/src/mappings.py
-/src/Messing around/
-/src_copy/
-/Inspecting Data/
-/Others Scripts/
 /Data/
 /.vscode/
+/src/energydroughts-Europe/
+/src/notebooks_unused/
+/ERA5_downloading/
+era5_apirequest.py
+download.nc
+ruff.toml
+test.ipynb

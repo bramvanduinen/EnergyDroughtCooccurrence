@@ -3,7 +3,9 @@ import glob
 import xarray as xr
 import pandas as pd
 import numpy as np
-from tqdm.notebook import tqdm
+from collections import Counter
+from tqdm import tqdm
+
 
 def check_make_dir(dir_Name):
     """
@@ -16,8 +18,9 @@ def check_make_dir(dir_Name):
         None
     """
     if not os.path.exists(dir_Name):
-        print('Creating dir %s' % dir_Name)
+        print("Creating dir %s" % dir_Name)
         os.makedirs(dir_Name)
+
 
 def extract_country_name(filepath):
     """
@@ -29,7 +32,8 @@ def extract_country_name(filepath):
     Returns:
         str: Extracted country name.
     """
-    return os.path.basename(filepath).split('_')[0]
+    return os.path.basename(filepath).split("_")[0]
+
 
 def add_country_coord(ds, country_name):
     """
@@ -44,6 +48,7 @@ def add_country_coord(ds, country_name):
     """
     return ds.assign_coords(country_name=country_name)
 
+
 def combine_variables(ds, variable):
     """
     Combine specific variables in a dataset.
@@ -55,12 +60,13 @@ def combine_variables(ds, variable):
     Returns:
         xarray.DataArray: Dataset with the combined variable.
     """
-    if variable == 'sun':
-        return ds['pv_util'] + ds['pv_roof']
-    elif variable == 'wind':
-        return ds['wind_offshore'] + ds['wind_onshore']
+    if variable == "sun":
+        return ds["pv_util"] + ds["pv_roof"]
+    elif variable == "wind":
+        return ds["wind_offshore"] + ds["wind_onshore"]
     else:
         return ds[variable]
+
 
 def preprocess_data(filepath, variable):
     """
@@ -79,7 +85,8 @@ def preprocess_data(filepath, variable):
     ds = combine_variables(ds, variable)
     return ds
 
-def load_data(energy_path, variable, runname, stacked = True):
+
+def load_data(energy_path, variable, runname, stacked=True):
     """
     Load and preprocess multiple datasets, concatenating them along the 'country' dimension.
 
@@ -91,16 +98,19 @@ def load_data(energy_path, variable, runname, stacked = True):
     Returns:
         xarray.Dataset: Concatenated and preprocessed dataset.
     """
-    filepaths = sorted(glob.glob(energy_path + '???' + '_' + runname + '.nc'))
+    filepaths = sorted(glob.glob(energy_path + "???" + "_" + runname + ".nc"))
     datasets = [preprocess_data(fp, variable) for fp in filepaths]
-    ds = xr.concat(datasets, dim='country')
-    ds = ds.where(ds['time'].dt.month.isin([10, 11, 12, 1, 2, 3, 4]), drop=True)
-    ds = ds.drop_sel(country=[19, 23])  # drop countries that are not properly represented in the analysis
+    ds = xr.concat(datasets, dim="country")
+    ds = ds.where(ds["time"].dt.month.isin([10, 11, 12, 1, 2, 3, 4]), drop=True)
+    ds = ds.drop_sel(
+        country=[19, 23]
+    )  # drop countries that are not properly represented in the analysis
 
     if stacked:
-        return ds.stack(event=('runs', 'time'))
+        return ds.stack(event=("runs", "time"))
     else:
         return ds
+
 
 def load_anomaly(base_anom, dtype):
     """
@@ -115,16 +125,21 @@ def load_anomaly(base_anom, dtype):
         numpy.ndarray: Array of longitudes.
         numpy.ndarray: Array of latitudes.
     """
-    files = glob.glob(base_anom + f'{dtype}_d_anomaly' + f'/anom_{dtype}_d_ECEarth3_h*.nc')
+    files = glob.glob(
+        base_anom + f"{dtype}_d_anomaly" + f"/anom_{dtype}_d_ECEarth3_h*.nc"
+    )
     files.sort()  # sort the list in place
     datasets = []
     for f in tqdm(files):
         dset = xr.open_dataset(f)
-        datasets.append(dset[dtype].where(dset['time'].dt.month.isin([11, 12, 1, 2, 3]), drop=True))
+        datasets.append(
+            dset[dtype].where(dset["time"].dt.month.isin([11, 12, 1, 2, 3]), drop=True)
+        )
 
-    data = xr.concat(datasets, dim='run')
-    data['run'] = data['run'] + 10
-    return data, data['lon'].values, data['lat'].values
+    data = xr.concat(datasets, dim="run")
+    data["run"] = data["run"] + 10
+    return data, data["lon"].values, data["lat"].values
+
 
 def load_psl(base_psl):
     """
@@ -136,16 +151,19 @@ def load_psl(base_psl):
     Returns:
         xr.Dataset: Concatenated psl data along the 'run' dimension.
     """
-    files_psl = glob.glob(base_psl + 'psl_d_ECEarth3_h*.nc')
+    files_psl = glob.glob(base_psl + "psl_d_ECEarth3_h*.nc")
     files_psl.sort()
     datasets_psl = []
     for f in tqdm(files_psl):
         dset = xr.open_dataset(f)
-        datasets_psl.append(dset.psl.where(dset['time'].dt.month.isin([11, 12, 1, 2, 3]), drop=True))
-        
-    data_psl = xr.concat(datasets_psl, dim='run')
-    data_psl['run'] = data_psl['run'] + 10
+        datasets_psl.append(
+            dset.psl.where(dset["time"].dt.month.isin([11, 12, 1, 2, 3]), drop=True)
+        )
+
+    data_psl = xr.concat(datasets_psl, dim="run")
+    data_psl["run"] = data_psl["run"] + 10
     return data_psl
+
 
 def merge_cluster_data(cluster_path, data_rank):
     """
@@ -159,16 +177,21 @@ def merge_cluster_data(cluster_path, data_rank):
         pd.DataFrame: Merged DataFrame containing energy times series with matching cluster information.
     """
     df_all = pd.read_csv(cluster_path)
-    df_all = df_all[['time', 'run', 'cluster_id']]
-    df_all['time'] = pd.to_datetime(df_all['time'])
-    df_all['time'] = df_all['time'].apply(lambda dt: dt.replace(hour=12, minute=0, second=0)) # set time to noon, to match df. Is daily average anyway
+    df_all = df_all[["time", "run", "cluster_id"]]
+    df_all["time"] = pd.to_datetime(df_all["time"])
+    df_all["time"] = df_all["time"].apply(
+        lambda dt: dt.replace(hour=12, minute=0, second=0)
+    )  # set time to noon, to match df. Is daily average anyway
 
-    df_xr = data_rank.to_dataframe().reset_index(drop = True)
-    df_xr['run'] = df_xr['runs'].str.extract('(\d+)').astype(int)
-    df_xr = df_xr.drop('runs', axis = 1)
+    df_xr = data_rank.to_dataframe().reset_index(drop=True)
+    df_xr["run"] = df_xr["runs"].str.extract("(\d+)").astype(int)
+    df_xr = df_xr.drop("runs", axis=1)
 
-    df_raw = pd.merge(df_xr, df_all[['time', 'run', 'cluster_id']], on=['time', 'run'], how='left') # merge both df's on correct time and run
+    df_raw = pd.merge(
+        df_xr, df_all[["time", "run", "cluster_id"]], on=["time", "run"], how="left"
+    )  # merge both df's on correct time and run
     return df_raw
+
 
 def df_thresholds(data_stacked, thres):
     """
@@ -181,16 +204,17 @@ def df_thresholds(data_stacked, thres):
     Returns:
         pd.DataFrame: DataFrame containing country names and corresponding energy thresholds.
     """
-    threshold = data_stacked.quantile(thres, dim='event')
+    threshold = data_stacked.quantile(thres, dim="event")
     data = []
-    columns = ['Country_name', 'threshold']
+    columns = ["Country_name", "threshold"]
     for i, country_name in enumerate(threshold.country_name.values):
         data.append([country_name, float(threshold[i].values)])
 
     df_threshold = pd.DataFrame(data, columns=columns)
     return df_threshold
 
-def calc_composite_mean(data, df_events): 
+
+def calc_composite_mean(data, df_events):
     """
     Calculate composite mean based on selected events.
 
@@ -200,12 +224,22 @@ def calc_composite_mean(data, df_events):
 
     Returns:
         np.ndarray: Composite mean array.
-    """   
-    num_events = len(df_events['time'])
-    composite_mean = np.nansum([data.sel(time=t, run=r) for t, r in zip(df_events['time'].values, df_events['run'].values)], axis=0) / num_events
+    """
+    num_events = len(df_events["time"])
+    composite_mean = (
+        np.nansum(
+            [
+                data.sel(time=t, run=r)
+                for t, r in zip(df_events["time"].values, df_events["run"].values)
+            ],
+            axis=0,
+        )
+        / num_events
+    )
     return composite_mean
 
-def calc_composite_mean_multipledayevent(data_rolling, df_events): 
+
+def calc_composite_mean_multipledayevent(data_rolling, df_events):
     """
     Calculate composite mean for multiple day event based on selected events.
 
@@ -215,7 +249,69 @@ def calc_composite_mean_multipledayevent(data_rolling, df_events):
         window (int): Window size for rolling mean.
     Returns:
         np.ndarray: Composite mean array.
-    """   
+    """
     num_events = len(df_events)
-    composite_mean = np.nansum([data_rolling.sel(time=t, run=r) for t, r in zip(df_events['end_time'].values, df_events['run'].values)], axis=0) / num_events
+    composite_mean = (
+        np.nansum(
+            [
+                data_rolling.sel(time=t, run=r)
+                for t, r in zip(df_events["end_time"].values, df_events["run"].values)
+            ],
+            axis=0,
+        )
+        / num_events
+    )
     return composite_mean
+
+
+def find_dominant_wr(df_events, df_wr, cluster_col):
+    """
+    Identifies the dominant weather regime for each event in the events DataFrame, based
+    on weather regime data. Updates the original events DataFrame with the dominant weather
+    regime and the list of weather regime IDs occurring within each event's duration.
+
+    Args:
+        df_events (pd.DataFrame): DataFrame containing events with start and end times,
+                                  and a 'run' identifier for each event.
+        df_wr (pd.DataFrame): DataFrame containing weather regime data with timestamps, 'run'
+                              identifiers, and weather regime IDs specified by `cluster_col`.
+        cluster_col (str): Column name in df_wr that contains weather regime IDs.
+
+    Returns:
+        pd.DataFrame: The updated events DataFrame including the dominant weather regime for each
+                      event and a list of all weather regime IDs occurring within the event's duration.
+
+    Notes:
+        The dominant weather regime is identified as the most common weather regime during the
+        event's duration. If no regime occurs at least 4 out of 7 days (assuming a week-long event),
+        a value of 5 is assigned to indicate no persisting regime. If only one type of regime is
+        present, it is automatically considered dominant.
+    """
+    # Initialize columns for weather regime IDs and the dominant weather regime
+    df_events["weather_regime_ids"] = None
+    df_events["dominant_weather_regime"] = None
+
+    for index, row in df_events.iterrows():
+        run_condition = df_wr["run"] == row["run"]
+        date_condition = (df_wr["time"] >= row["start_time"]) & (
+            df_wr["time"] <= row["end_time"]
+        )
+
+        # Filter df_wr based on 'run' and date range to find relevant weather regimes
+        relevant_weather_regimes = df_wr.loc[
+            run_condition & date_condition, cluster_col
+        ].tolist()
+
+        # Identify the top two most common regimes (if applicable) and determine dominance
+        dominant_2 = Counter(relevant_weather_regimes).most_common(2)
+        if len(dominant_2) == 1 or dominant_2[0][1] >= 4:
+            df_events.at[index, "dominant_weather_regime"] = dominant_2[0][0]
+        else:
+            df_events.at[index, "dominant_weather_regime"] = (
+                5  # Indicate no persisting regime
+            )
+
+        # Update the 'weather_regime_ids' column with the list of regimes for each event
+        df_events.at[index, "weather_regime_ids"] = relevant_weather_regimes
+
+    return df_events
