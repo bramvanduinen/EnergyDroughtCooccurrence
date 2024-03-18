@@ -1,13 +1,23 @@
-"""Clustering and Bayesian probabilistic assignment of weather regimes."""
+"""Clustering and Bayesian probabilistic assignment of weather regimes.
 
-# Author: Bram van Duinen
+This script is designed to assign individual weather patterns to weather regimes,
+using a Bayesian probabilistic approach. The methodology allows for the identification and
+classification of atmospheric conditions into distinct regimes, facilitating the study of
+their impacts on climate and weather forecasts.
 
-# Reference
-# Adapted from: [Matteo De Felice's Recipe for Weather Regimes](https://github.com/matteodefelice/a-recipe-for-weather-regimes/blob/main/recipe.ipynb) (28 Nov 2023)# %%
-# REF: https://github.com/matteodefelice/a-recipe-for-weather-regimes/blob/main/recipe.ipynb
-# REF: https://journals.ametsoc.org/view/journals/clim/36/24/JCLI-D-22-0419.1.xml
+Author: Bram van Duinen
 
-# import modules
+References
+----------
+- K-means clustering method adapted from Matteo De Felice's Recipe for Weather Regimes available at:
+  https://github.com/matteodefelice/a-recipe-for-weather-regimes/blob/main/recipe.ipynb
+  (Accessed on 28 Nov 2023).
+- Bayesian probabilistic clustering adapted from Falkena et al. (2023), available at:
+  https://journals.ametsoc.org/view/journals/clim/36/24/JCLI-D-22-0419.1.xml
+
+"""
+
+# importing modules
 import ast
 import os
 import time
@@ -41,15 +51,15 @@ DF_CLUSTERS_FULL_FILENAME = os.path.join(DIR_CLUSTERS, "df_clusters_full_unorder
 
 
 # define functions
-def load_data(year, run_mid=90):
+def load_data(year: int, run_mid: int = 90) -> xr.DataArray:
     """Load and preprocess zg500 data for a specific year, to calculate cluster centroids.
 
-    Parameters
-    ----------
+    Args:
+    ----
     - year (int): The target year for data extraction.
     - run_mid (int): The middle run index for splitting the data.
 
-    Returns
+    Returns:
     -------
     - df (xarray.DataArray): Preprocessed zg500 data.
 
@@ -93,18 +103,17 @@ def load_data(year, run_mid=90):
     )
 
     df = xr.concat([df_1, df_2], dim="time").zg500.load()
-    df_original = df.coarsen(lon=3).mean().coarsen(lat=3, boundary="trim").mean()
-    return df_original
+    return df.coarsen(lon=3).mean().coarsen(lat=3, boundary="trim").mean()
 
 
-def load_data_per_run(run):
+def load_data_per_run(run: int) -> xr.DataArray:
     """Load and preprocess zg500 data for a specific run.
 
-    Parameters
-    ----------
+    Args:
+    ----
     - run (int): The run index for data extraction.
 
-    Returns
+    Returns:
     -------
     - df (xarray.DataArray): Preprocessed zg500 data for the given run.
 
@@ -122,9 +131,7 @@ def load_data_per_run(run):
     )
 
     df = df.zg500.load()
-    df_original = df.coarsen(lon=3).mean().coarsen(lat=3, boundary="trim").mean()
-
-    return df_original
+    return df.coarsen(lon=3).mean().coarsen(lat=3, boundary="trim").mean()
 
 
 def calculate_anomaly(da, groupby_type="time.dayofyear"):
@@ -255,39 +262,41 @@ def original_space(cluster_center_array, eofs):
     return recons_cluster_centers_unweighted
 
 
-def assign_cluster_df(X_assign, centroids, run_id, df):
-    """Assign data points to clusters based on distances.
+# def assign_cluster_df(X_assign, centroids, run_id, df):
+#     """Assign data points to clusters based on distances.
 
-    Parameters
-    ----------
-    - X_assign: Data points to assign.
-    - centroids: Cluster centroids.
-    - run_id: Run identifier.
-    - df: Original dataset with the data points.
+#     Parameters
+#     ----------
+#     - X_assign: Data points to assign.
+#     - centroids: Cluster centroids.
+#     - run_id: Run identifier.
+#     - df: Original dataset with the data points.
 
-    Returns
-    -------
-    - df_cluster: Dataframe with cluster assignments.
+#     Returns
+#     -------
+#     - df_cluster: Dataframe with cluster assignments.
 
-    """
-    assignments = []
-    distances = []
-    for data_point in X_assign:
-        distances = np.linalg.norm(centroids - data_point, axis=1)
-        cluster_assignment = np.argmin(distances)
-        assignments.append(cluster_assignment)
-        distances.append(distances)
+#     """
+#     assignments = []
+#     distances = []
+#     projections = []
+#     for data_point in X_assign:
+#         distances = np.linalg.norm(centroids - data_point, axis=1)
+#         cluster_assignment = np.argmin(distances)
+#         projection = np.dot(centroids, data_point)
+#         assignments.append(cluster_assignment)
+#         distances.append(distances)
+#         projections.append(projection)
 
-    df_cluster = pd.DataFrame(
-        {
-            "time": df["time"].values,
-            "run": run_id,
-            "cluster_id": assignments,
-            "distances": distances,
-        },
-    )
-
-    return df_cluster
+#     return pd.DataFrame(
+#         {
+#             "time": df["time"].values,
+#             "run": run_id,
+#             "cluster_id": assignments,
+#             "distances": distances,
+#             "projections": projections,
+#         },
+#     )
 
 
 def gen_clusters(year=2005):
@@ -343,31 +352,40 @@ def assign_to_cluster(run, centroids):
 
     assignments = []
     all_errors = []
-    correlations = []
+    projections = []
 
     for data_point in df_anom:
         distances = np.linalg.norm(centroids - data_point, axis=(1, 2))
-        # this part to add no-regime part if there is no significant improvement
-        cluster_assignment = np.argmin(distances)
-        corr = np.corrcoef(
+        projection = np.dot(
+            centroids.values.reshape(centroids.shape[0], -1),
             data_point.values.flatten(),
-            centroids[cluster_assignment].values.flatten(),
-        )[0, 1]
+        )
+        cluster_assignment = np.argmin(distances)
 
         assignments.append(cluster_assignment)
         all_errors.append(distances.tolist())
-        correlations.append(corr)
+        projections.append(projection.tolist())
 
-    df_cluster = pd.DataFrame(
+    return pd.DataFrame(
         {
             "time": df["time"].values,
             "run": run,
             "cluster_id": assignments,
-            "correlation": correlations,
+            "projections": projections,
             "all_errors": all_errors,
         },
     )
-    return df_cluster
+
+
+# standardising projections onto centroids, to Weather Regime index
+def calc_wri(df_cluster_full):
+    """Calculate the Weather Regime Index (WRI), based on standardised projections onto centroids."""
+    projection_array = np.array(df_cluster_full["projections"].apply(ast.literal_eval).to_list())
+    mean_projection = np.mean(projection_array, axis=0)
+    std_projection = np.std(projection_array, axis=0)
+    wri = (projection_array - mean_projection) / std_projection
+    df_cluster_full["wri"] = wri.tolist()
+    return df_cluster_full
 
 
 def distance_obs_erai(data, theta):
@@ -521,6 +539,8 @@ def main():
     df_cluster_full["all_errors"] = df_cluster_full["all_errors"].apply(
         ast.literal_eval,
     )
+
+    df_cluster_full = calc_wri(df_cluster_full)
 
     # perform Bayesian probabilistic assignment
     print("Performing Bayesian probabilistic assignment...")
