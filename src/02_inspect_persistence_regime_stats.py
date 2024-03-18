@@ -12,10 +12,13 @@ from tqdm import tqdm
 
 # %%
 # LOAD DATA
-df = pd.read_csv(os.path.join(PATH_CLUSTERS, VERSION, "df_clusters_full_ordered.csv"), index_col=0)
-df.drop(columns=["Unnamed: 0"], inplace=True)
-df["time"] = pd.to_datetime(df["time"])
-df["time"] = df["time"].apply(
+df_clusters = pd.read_csv(
+    os.path.join(PATH_CLUSTERS, VERSION, "df_clusters_full_ordered.csv"),
+    index_col=0,
+)
+df_clusters.drop(columns=["Unnamed: 0"], inplace=True)
+df_clusters["time"] = pd.to_datetime(df_clusters["time"])
+df_clusters["time"] = df_clusters["time"].apply(
     lambda dt: dt.replace(hour=12, minute=0, second=0),
 )  # set time to noon, to match df. Is daily average anyway
 
@@ -24,6 +27,12 @@ ed = pd.read_csv(
 ).reset_index(drop=True)
 ed["run"] = ed["runs"].str.extract(r"(\d+)").astype(int)
 df_events = ed.drop(["Unnamed: 0", "runs"], axis=1)
+
+random_ed = pd.read_csv(
+    os.path.join(PATH_ED, "random_netto_demand_el7_winter_LENTIS_2023_PD_1600_events.csv"),
+).reset_index(drop=True)
+random_ed["run"] = random_ed["runs"].str.extract(r"(\d+)").astype(int)
+df_random = random_ed.drop(["Unnamed: 0", "runs"], axis=1)
 
 
 # %%
@@ -47,7 +56,7 @@ def calculate_persistency_stats(df, date_col="time", cluster_col="cluster_id"):
     return persistency_stats, streak_lengths
 
 
-def persistence_comparison(cluster_id, df_event_wr, df, streak_lengths_Bayes):
+def persistence_comparison(cluster_id, df_event_wr, df_random_wr, df, streak_lengths_Bayes):
     """Calculate and plot the mean streak lengths for a given weather regime cluster,
     comparing event-specific means to the overall mean streak length for that cluster.
 
@@ -65,62 +74,109 @@ def persistence_comparison(cluster_id, df_event_wr, df, streak_lengths_Bayes):
     """
     streak_lengths_copy = streak_lengths_Bayes.copy()
 
-    streak_length_array = []
+    streak_length_array = ([], [])
 
     df_events_regime = df_event_wr.query("dominant_weather_regime == @cluster_id")
+    df_random_regime = df_random_wr.query("dominant_weather_regime == @cluster_id")
+    df_list = [df_events_regime, df_random_regime]
+    full_mean = []
+    full_median = []
+    for i, df_i in enumerate(df_list):
+        for ind, row in tqdm(df_i.iterrows(), total=df_i.shape[0]):
+            run = row["run"]
+            start_time = pd.to_datetime(row["start_time"])
 
-    for ind, row in tqdm(df_events_regime.iterrows(), total=df_events_regime.shape[0]):
-        run = row["run"]
-        start_time = pd.to_datetime(row["start_time"])
+            first_time_index = np.where(np.array(row["weather_regime_ids"]) == cluster_id)[0][0]
+            streak_time = start_time + pd.Timedelta(days=first_time_index)
 
-        first_time_index = np.where(np.array(row["weather_regime_ids"]) == cluster_id)[0][0]
-        streak_time = start_time + pd.Timedelta(days=first_time_index)
+            try:
+                streak_id = df.query("run == @run and time == @streak_time")["streak_id"].values[0]
+                streak_length = streak_lengths_copy.query(
+                    "Bayes_cluster == @cluster_id and streak_id == @streak_id",
+                )
+                streak_length_value = streak_length["streak_length"].values[0]
+                streak_length_array[i].append(streak_length_value)
+                streak_lengths_copy = streak_lengths_copy.drop(streak_length.index)
+            except IndexError:
+                continue
+        full_mean.append(np.mean(streak_length_array[i]))
+        full_median.append(np.median(streak_length_array[i]))
 
-        try:
-            streak_id = df.query("run == @run and time == @streak_time")["streak_id"].values[0]
-            streak_length = streak_lengths_copy.query(
-                "Bayes_cluster == @cluster_id and streak_id == @streak_id",
-            )
-            streak_length_value = streak_length["streak_length"].values[0]
-            streak_length_array.append(streak_length_value)
-            streak_lengths_copy = streak_lengths_copy.drop(streak_length.index)
-        except IndexError:
-            continue
-
-    streak_length_all = streak_lengths_Bayes.query("Bayes_cluster == @cluster_id")[
-        "streak_length"
-    ].values
-    full_mean = np.mean(streak_length_all)
-    event_mean = np.mean(streak_length_array)
+    diff = 100 * (full_mean[0] - full_mean[1]) / full_mean[1]
+    diff_median = 100 * (full_median[0] - full_median[1]) / full_median[1]
 
     plt.figure()
-    plt.hist(streak_length_all, color="C0", alpha=0.3)
-    plt.hist(streak_length_array, color="r", alpha=0.5)
-    plt.axvline(event_mean, color="r", linestyle="dashed", linewidth=1, label="Event mean")
-    plt.axvline(full_mean, color="C0", linestyle="dashed", linewidth=1, label="Full regime mean")
+    bins = np.arange(49, step=3)
+    n_random_events = len(df_random_regime)
+    n_events = len(df_events_regime)
+    if n_random_events > n_events:
+        plt.hist(streak_length_array[1], bins=bins, color="C0", alpha=0.5)
+        plt.hist(streak_length_array[0], bins=bins, color="r", alpha=0.5)
+    elif n_random_events <= n_events:
+        plt.hist(streak_length_array[0], bins=bins, color="r", alpha=0.5)
+        plt.hist(streak_length_array[1], bins=bins, color="C0", alpha=0.5)
+    plt.axvline(
+        full_mean[0],
+        color="r",
+        linestyle="dashed",
+        linewidth=1,
+        label=f"Event mean (n = {n_events})",
+    )
+    plt.axvline(
+        full_mean[1],
+        color="C0",
+        linestyle="dashed",
+        linewidth=1,
+        label=f"Full regime mean (n = {n_random_events})",
+    )
+    plt.axvline(
+        full_median[0],
+        color="r",
+        linestyle="dotted",
+        linewidth=1,
+        label=f"Event median (n = {n_events})",
+    )
+    plt.axvline(
+        full_median[1],
+        color="C0",
+        linestyle="dotted",
+        linewidth=1,
+        label=f"Full regime median (n = {n_random_events})",
+    )
     plt.xlabel("Persistence [days]")
     plt.ylabel("Count")
-    plt.title(f"Regime: {CLUSTER_NAMES[cluster_id]}")
+    plt.title(
+        f"Regime: {CLUSTER_NAMES[cluster_id]}; Difference: {diff:.2f}% (mean) or {diff_median:.2f}% (median)",
+    )
     plt.legend()
     plt.show()
 
-    return event_mean, full_mean
+    return full_mean
 
 
 # %%
 # ANALYSIS
 
 pers_stats, streak_lengths = calculate_persistency_stats(
-    df,
+    df_clusters,
     cluster_col="Bayes_cluster",
 )
 
-df_event_wr = ut.find_dominant_wr(df_events, df, cluster_col="Bayes_cluster")
+df_event_wr = ut.find_dominant_wr(df_events, df_clusters, cluster_col="Bayes_cluster")
+df_random_wr = ut.find_dominant_wr(df_random, df_clusters, cluster_col="Bayes_cluster")
 
+# %%
 event_mean_list = []
 full_mean_list = []
-for i in range(4):
-    event_mean, full_mean = persistence_comparison(i, df_event_wr, df, streak_lengths)
+# for i in range(4):
+for i in [1, 2]:
+    event_mean, full_mean = persistence_comparison(
+        i,
+        df_event_wr,
+        df_random_wr,
+        df_clusters,
+        streak_lengths,
+    )
     event_mean_list.append(event_mean)
     full_mean_list.append(full_mean)
 
@@ -177,17 +233,17 @@ plt.legend()
 # %%
 for i in range(5):
     print(
-        df.query("cluster_id == @i")["correlation"].mean(),
-        df.query("cluster_id == @i")["correlation"].std(),
+        df_clusters.query("cluster_id == @i")["correlation"].mean(),
+        df_clusters.query("cluster_id == @i")["correlation"].std(),
     )
     print(
-        df.query("Bayes_cluster == @i")["correlation"].mean(),
-        df.query("Bayes_cluster == @i")["correlation"].std(),
+        df_clusters.query("Bayes_cluster == @i")["correlation"].mean(),
+        df_clusters.query("Bayes_cluster == @i")["correlation"].std(),
     )
 
 # %%
 for i in range(5):
-    sns.kdeplot(df.query("Bayes_cluster == @i")["correlation"], label=f"Cluster {i}")
+    sns.kdeplot(df_clusters.query("Bayes_cluster == @i")["correlation"], label=f"Cluster {i}")
 plt.legend()
 
 
@@ -205,7 +261,9 @@ def cluster_length_per_country(cluster_id, country):
         first_time = np.where(np.array(row["weather_regime_ids"]) == cluster_id)[0][0]
         streak_time = start_time + pd.Timedelta(days=first_time)
         try:
-            streak_id = df.query("run == @run and time == @streak_time")["streak_id"].values[0]
+            streak_id = df_clusters.query("run == @run and time == @streak_time")[
+                "streak_id"
+            ].values[0]
             streak_length = streak_lengths.query(
                 "Bayes_cluster == @cluster_id and streak_id == @streak_id",
             )

@@ -17,6 +17,36 @@ N_EOFS_FOR_KMEANS = 20
 N_CLUSTERS = 4
 THRES = 0.8  # If posterior probability of best-regime is below this threshold, assign to no regime
 
+# energy drought parameters
+EVENTTYPE = "random"
+EVENT_LENGTH = 7
+NUM_EVENTS = 1600
+COUNTRIES = [
+    "AUT",
+    "BEL",
+    "CHE",
+    "CZE",
+    "DEU",
+    "DNK",
+    "ESP",
+    "EST",
+    "FIN",
+    "FRA",
+    "GBR",
+    "HRV",
+    "HUN",
+    "IRL",
+    "ITA",
+    "LTU",
+    "LVA",
+    "NLD",
+    "NOR",
+    "POL",
+    "PRT",
+    "SVK",
+    "SVN",
+    "SWE",
+]
 
 # Lieke
 FOLDER = "/net/pc200256//nobackup/users/most/output/LENTIS_2023_PD/agg_production/per_country/"

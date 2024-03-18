@@ -2,7 +2,7 @@
 /Results/
 /Data/
 /.vscode/
-/src/energydroughts-Europe/
+/src/energydroughts-Europe/data/
 /src/notebooks_unused/
 /ERA5_downloading/
 era5_apirequest.py
