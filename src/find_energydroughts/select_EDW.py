@@ -3,7 +3,7 @@ import os
 import numpy as np
 import pandas as pd
 import xarray as xr
-from config import COUNTRIES, EVENTTYPE, FOLDER, OFOLDER, RUNNAME
+from config_edw import COUNTRIES, EVENTTYPE, FOLDER, OFOLDER, RUNNAME
 from tqdm import tqdm
 
 # Constants
@@ -118,9 +118,7 @@ def main():
             all_events_df = all_events_df.rename({"index": "event_number"}, axis=1)
             all_events_df["event_number"] += 1
 
-            filename = (
-                f"{EVENTTYPE}_{VAR0}_el{event_length}_{season}_{RUNNAME}_{NR_OF_EVENTS}_events.csv"
-            )
+            filename = f"{EVENTTYPE}_v2_{VAR0}_el{event_length}_{season}_{RUNNAME}_{NR_OF_EVENTS}_events.csv"
             output_file = os.path.join(OFOLDER, filename)
             all_events_df.to_csv(output_file)
             print(f"Saved to {output_file}")

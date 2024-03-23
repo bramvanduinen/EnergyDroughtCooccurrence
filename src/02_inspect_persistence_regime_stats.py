@@ -5,7 +5,6 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
 import utils as ut
 from config import CLUSTER_NAMES, PATH_CLUSTERS, PATH_ED, VERSION
 from tqdm import tqdm
@@ -14,9 +13,7 @@ from tqdm import tqdm
 # LOAD DATA
 df_clusters = pd.read_csv(
     os.path.join(PATH_CLUSTERS, VERSION, "df_clusters_full_ordered.csv"),
-    index_col=0,
 )
-df_clusters.drop(columns=["Unnamed: 0"], inplace=True)
 df_clusters["time"] = pd.to_datetime(df_clusters["time"])
 df_clusters["time"] = df_clusters["time"].apply(
     lambda dt: dt.replace(hour=12, minute=0, second=0),
@@ -25,6 +22,9 @@ df_clusters["time"] = df_clusters["time"].apply(
 ed = pd.read_csv(
     os.path.join(PATH_ED, "netto_demand_el7_winter_LENTIS_2023_PD_1600_events.csv"),
 ).reset_index(drop=True)
+# ed = pd.read_csv(
+#     os.path.join(PATH_ED, "random_v2_netto_demand_el7_winter_LENTIS_2023_PD_1600_events.csv"),
+# ).reset_index(drop=True)
 ed["run"] = ed["runs"].str.extract(r"(\d+)").astype(int)
 df_events = ed.drop(["Unnamed: 0", "runs"], axis=1)
 
@@ -81,6 +81,7 @@ def persistence_comparison(cluster_id, df_event_wr, df_random_wr, df, streak_len
     df_list = [df_events_regime, df_random_regime]
     full_mean = []
     full_median = []
+    err = [0, 0]
     for i, df_i in enumerate(df_list):
         for ind, row in tqdm(df_i.iterrows(), total=df_i.shape[0]):
             run = row["run"]
@@ -96,8 +97,9 @@ def persistence_comparison(cluster_id, df_event_wr, df_random_wr, df, streak_len
                 )
                 streak_length_value = streak_length["streak_length"].values[0]
                 streak_length_array[i].append(streak_length_value)
-                streak_lengths_copy = streak_lengths_copy.drop(streak_length.index)
+            #     streak_lengths_copy = streak_lengths_copy.drop(streak_length.index)
             except IndexError:
+                err[i] += 1
                 continue
         full_mean.append(np.mean(streak_length_array[i]))
         full_median.append(np.median(streak_length_array[i]))
@@ -151,7 +153,7 @@ def persistence_comparison(cluster_id, df_event_wr, df_random_wr, df, streak_len
     plt.legend()
     plt.show()
 
-    return full_mean
+    return full_mean, err
 
 
 # %%
@@ -166,10 +168,11 @@ df_event_wr = ut.find_dominant_wr(df_events, df_clusters, cluster_col="Bayes_clu
 df_random_wr = ut.find_dominant_wr(df_random, df_clusters, cluster_col="Bayes_cluster")
 
 # %%
+# TODO: Turn this into a method, repeat analysis for regions like in 02b.
 event_mean_list = []
 full_mean_list = []
-# for i in range(4):
-for i in [1, 2]:
+for i in range(4):
+    # for i in [1, 2]:
     event_mean, full_mean = persistence_comparison(
         i,
         df_event_wr,
@@ -181,108 +184,3 @@ for i in [1, 2]:
     full_mean_list.append(full_mean)
 
 # %%
-# GENERAL STATISTICS
-colors = ["C0", "C1", "C2", "C3", "C4"]
-
-for cluster_id in range(5):
-    color = colors[cluster_id]
-    cluster_data_Bayes = streak_lengths[streak_lengths["Bayes_cluster"] == cluster_id][
-        "streak_length"
-    ]
-    plt.axvline(np.mean(cluster_data_Bayes), color=color)
-    cluster_data = streak_lengths[streak_lengths["cluster_id"] == cluster_id]["streak_length"]
-    plt.axvline(np.mean(cluster_data), color=color, linestyle="dotted")
-    sns.kdeplot(
-        cluster_data_Bayes,
-        color=color,
-        label=f"Cluster {cluster_id}",
-        bw_method=0.5,
-        clip=(0, 100),
-    )
-    sns.kdeplot(cluster_data, color=color, linestyle="dotted", bw_method=0.5, clip=(0, 100))
-
-# Add labels and title
-plt.xlabel("Streak Length [days]")
-plt.ylabel("Density")
-plt.title("KDE Plot of Streak Lengths by Cluster (dotted = default, solid = Bayes)")
-plt.xlim(0, 20)
-plt.legend()
-
-# %%
-# Set up the figure and axis
-plt.figure(figsize=(10, 6))
-ax = plt.gca()
-
-# Plot histograms for each cluster with different colors
-for cluster_id in range(5):
-    cluster_data2 = streak_lengths[streak_lengths["Bayes_cluster"] == cluster_id]["streak_length"]
-    plt.hist(
-        cluster_data2,
-        bins=np.arange(30),
-        alpha=0.7,
-        label=f"Cluster {cluster_id}",
-        density=True,
-    )
-
-# Add labels and title
-plt.xlabel("Streak Length [days]")
-plt.ylabel("Frequency")
-plt.title("Histogram of Streak Lengths by Cluster")
-plt.legend()
-
-# %%
-for i in range(5):
-    print(
-        df_clusters.query("cluster_id == @i")["correlation"].mean(),
-        df_clusters.query("cluster_id == @i")["correlation"].std(),
-    )
-    print(
-        df_clusters.query("Bayes_cluster == @i")["correlation"].mean(),
-        df_clusters.query("Bayes_cluster == @i")["correlation"].std(),
-    )
-
-# %%
-for i in range(5):
-    sns.kdeplot(df_clusters.query("Bayes_cluster == @i")["correlation"], label=f"Cluster {i}")
-plt.legend()
-
-
-# %%
-# APPENDIX
-# Not used right now, but it's an option
-def cluster_length_per_country(cluster_id, country):
-    streak_length_array = []
-    df_events_regime = df_event_wr.query(
-        "country == @country and dominant_weather_regime == @cluster_id",
-    )
-    for ind, row in tqdm(df_events_regime.iterrows()):
-        run = row["run"]
-        start_time = pd.to_datetime(row["start_time"])
-        first_time = np.where(np.array(row["weather_regime_ids"]) == cluster_id)[0][0]
-        streak_time = start_time + pd.Timedelta(days=first_time)
-        try:
-            streak_id = df_clusters.query("run == @run and time == @streak_time")[
-                "streak_id"
-            ].values[0]
-            streak_length = streak_lengths.query(
-                "Bayes_cluster == @cluster_id and streak_id == @streak_id",
-            )
-            streak_length_array.append(streak_length["streak_length"].values[0])
-        except IndexError:
-            continue
-
-    plt.figure()
-    streak_length_all = streak_lengths.query("Bayes_cluster == @cluster_id")["streak_length"].values
-    full_mean = np.mean(streak_length_all)
-    event_mean = np.mean(streak_length_array)
-    plt.hist(streak_length_all, color="C0", alpha=0.3)
-    plt.hist(streak_length_array, color="r", alpha=0.5)
-    plt.axvline(event_mean, color="r", linestyle="dashed", linewidth=1, label="Event mean")
-    plt.axvline(full_mean, color="C0", linestyle="dashed", linewidth=1, label="Full regime mean")
-    plt.xlabel("Persistence [days]")
-    plt.ylabel("Count")
-    plt.title(f"Regime: {CLUSTER_NAMES[cluster_id]}")
-    plt.legend()
-    plt.show()
-
-    return event_mean, full_mean
