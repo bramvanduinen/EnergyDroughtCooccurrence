@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import utils as ut
-from config import CLUSTER_NAMES, PATH_CLUSTERS, PATH_ED, VERSION
+from config import CLUSTER_NAMES, PATH_CLUSTERS, PATH_ED, REGIONS, VERSION
 from tqdm import tqdm
 
 # %%
@@ -56,8 +56,15 @@ def calculate_persistency_stats(df, date_col="time", cluster_col="cluster_id"):
     return persistency_stats, streak_lengths
 
 
-def persistence_comparison(cluster_id, df_event_wr, df_random_wr, df, streak_lengths_Bayes):
-    """Calculate and plot the mean streak lengths for a given weather regime cluster,
+def calc_persistence_comparison(
+    cluster_id,
+    region,
+    df_event_wr,
+    df_random_wr,
+    df,
+    streak_lengths_Bayes,
+):
+    """Calculate the mean streak lengths for a given weather regime cluster,
     comparing event-specific means to the overall mean streak length for that cluster.
 
     Args:
@@ -76,14 +83,16 @@ def persistence_comparison(cluster_id, df_event_wr, df_random_wr, df, streak_len
 
     streak_length_array = ([], [])
 
-    df_events_regime = df_event_wr.query("dominant_weather_regime == @cluster_id")
-    df_random_regime = df_random_wr.query("dominant_weather_regime == @cluster_id")
+    df_events_regime = df_event_wr.query(
+        "country in @region and dominant_weather_regime == @cluster_id",
+    )
+    df_random_regime = df_random_wr.query(
+        "country in @region and dominant_weather_regime == @cluster_id",
+    )
     df_list = [df_events_regime, df_random_regime]
-    full_mean = []
-    full_median = []
     err = [0, 0]
     for i, df_i in enumerate(df_list):
-        for ind, row in tqdm(df_i.iterrows(), total=df_i.shape[0]):
+        for ind, row in df_i.iterrows():
             run = row["run"]
             start_time = pd.to_datetime(row["start_time"])
 
@@ -97,63 +106,63 @@ def persistence_comparison(cluster_id, df_event_wr, df_random_wr, df, streak_len
                 )
                 streak_length_value = streak_length["streak_length"].values[0]
                 streak_length_array[i].append(streak_length_value)
-            #     streak_lengths_copy = streak_lengths_copy.drop(streak_length.index)
             except IndexError:
                 err[i] += 1
                 continue
-        full_mean.append(np.mean(streak_length_array[i]))
-        full_median.append(np.median(streak_length_array[i]))
+    return streak_length_array
 
-    diff = 100 * (full_mean[0] - full_mean[1]) / full_mean[1]
-    diff_median = 100 * (full_median[0] - full_median[1]) / full_median[1]
 
-    plt.figure()
-    bins = np.arange(49, step=3)
-    n_random_events = len(df_random_regime)
-    n_events = len(df_events_regime)
-    if n_random_events > n_events:
-        plt.hist(streak_length_array[1], bins=bins, color="C0", alpha=0.5)
-        plt.hist(streak_length_array[0], bins=bins, color="r", alpha=0.5)
-    elif n_random_events <= n_events:
-        plt.hist(streak_length_array[0], bins=bins, color="r", alpha=0.5)
-        plt.hist(streak_length_array[1], bins=bins, color="C0", alpha=0.5)
-    plt.axvline(
-        full_mean[0],
-        color="r",
-        linestyle="dashed",
-        linewidth=1,
-        label=f"Event mean (n = {n_events})",
-    )
-    plt.axvline(
-        full_mean[1],
-        color="C0",
-        linestyle="dashed",
-        linewidth=1,
-        label=f"Full regime mean (n = {n_random_events})",
-    )
-    plt.axvline(
-        full_median[0],
-        color="r",
-        linestyle="dotted",
-        linewidth=1,
-        label=f"Event median (n = {n_events})",
-    )
-    plt.axvline(
-        full_median[1],
-        color="C0",
-        linestyle="dotted",
-        linewidth=1,
-        label=f"Full regime median (n = {n_random_events})",
-    )
-    plt.xlabel("Persistence [days]")
-    plt.ylabel("Count")
-    plt.title(
-        f"Regime: {CLUSTER_NAMES[cluster_id]}; Difference: {diff:.2f}% (mean) or {diff_median:.2f}% (median)",
-    )
-    plt.legend()
-    plt.show()
+def plot_all_persistence_comparison(df_event_wr, df_random_wr, df, streak_lengths_Bayes):
+    for region_key in REGIONS:
+        region = REGIONS[region_key]
 
-    return full_mean, err
+        fig, axs = plt.subplots(2, 2)
+        axs = axs.flatten()
+        bins = np.arange(49, step=3)
+
+        for i in tqdm(range(4)):
+            streak_length_array = calc_persistence_comparison(
+                i,
+                region,
+                df_event_wr,
+                df_random_wr,
+                df,
+                streak_lengths_Bayes,
+            )
+
+            diff = (
+                100
+                * (np.mean(streak_length_array[0]) - np.mean(streak_length_array[1]))
+                / np.mean(
+                    streak_length_array[1],
+                )
+            )
+
+            axs[i].hist(streak_length_array[1], bins=bins, color="C0", alpha=0.5, label="Random")
+            axs[i].hist(streak_length_array[0], bins=bins, color="r", alpha=0.5, label="Events")
+            axs[i].axvline(
+                np.mean(streak_length_array[0]),
+                color="r",
+                linestyle="dashed",
+                linewidth=1,
+            )
+            axs[i].axvline(
+                np.mean(streak_length_array[1]),
+                color="C0",
+                linestyle="dashed",
+                linewidth=1,
+            )
+            axs[i].set_xlabel("Persistence [days]")
+            axs[i].set_ylabel("Count")
+            axs[i].set_xticks(np.arange(0, 50, step=5))
+            axs[i].set_title(
+                f"{CLUSTER_NAMES[i]}, diff = {diff:.2f}%",
+            )
+            axs[i].legend(loc="upper right")
+
+        plt.tight_layout(rect=[0, 0, 1, 0.95])  # Adjust the layout so that the plots do not overlap
+        plt.suptitle(f"Region: {region_key}")
+        plt.show()
 
 
 # %%
@@ -167,20 +176,6 @@ pers_stats, streak_lengths = calculate_persistency_stats(
 df_event_wr = ut.find_dominant_wr(df_events, df_clusters, cluster_col="Bayes_cluster")
 df_random_wr = ut.find_dominant_wr(df_random, df_clusters, cluster_col="Bayes_cluster")
 
-# %%
-# TODO: Turn this into a method, repeat analysis for regions like in 02b.
-event_mean_list = []
-full_mean_list = []
-for i in range(4):
-    # for i in [1, 2]:
-    event_mean, full_mean = persistence_comparison(
-        i,
-        df_event_wr,
-        df_random_wr,
-        df_clusters,
-        streak_lengths,
-    )
-    event_mean_list.append(event_mean)
-    full_mean_list.append(full_mean)
 
 # %%
+plot_all_persistence_comparison(df_event_wr, df_random_wr, df_clusters, streak_lengths)

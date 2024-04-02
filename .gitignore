@@ -4,6 +4,7 @@
 /.vscode/
 /src/find_energydroughts/data/
 /src/notebooks_unused/
+/src/01_WR_clustering_Bayes_parallellized.py
 /ERA5_downloading/
 era5_apirequest.py
 download.nc
