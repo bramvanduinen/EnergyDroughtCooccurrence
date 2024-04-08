@@ -11,7 +11,7 @@ CLUSTER_NAMES = ["NAO +", "NAO -", "Blocking", "Atl. Ridge"]
 WINDOW = 7
 
 # clustering parameters
-VERSION = "Bayes_full_v2"  # update this when you change the clustering algorithm and want to save the new results
+VERSION = "ERA5_v0"  # update this when you change the clustering algorithm and want to save the new results
 USE_SCALING = 0
 N_EOFS = 20
 N_EOFS_FOR_KMEANS = 20
