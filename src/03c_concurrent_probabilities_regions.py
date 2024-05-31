@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import utils as ut
-from config import CLUSTER_NAMES, COUNTRIES, PATH_CLUSTERS, PATH_DATA, REGIONS, VERSION
+from config import CLUSTER_NAMES, COUNTRIES, PATH_CLUSTERS, PATH_DATA, PATH_ED, REGIONS, VERSION
 from matplotlib import cm, colors, gridspec
 from matplotlib.patches import Rectangle
 from scipy.cluster.hierarchy import linkage
@@ -20,9 +20,6 @@ from tqdm.notebook import tqdm
 # LOAD DATA
 REGION_LIST = list(REGIONS.keys())
 HOMEDIR = "/usr/people/duinen/MSc-thesis/"
-# ROW_ORDER = np.load(
-#     f"{HOMEDIR}Data/row_order_nettodemand_v20240220.npy",
-# )  # load the row ordering of the clustered residual heatmap, to follow the same clustering!
 CMAP = "RdBu_r"
 
 BOUNDS_GREY = np.arange(-75, 85, 10)
@@ -43,7 +40,7 @@ df_clusters["time"] = df_clusters["time"].apply(
 
 ed = pd.read_csv(
     os.path.join(
-        "/usr/people/duinen/MSc-thesis/src/find_energydroughts/data/",
+        PATH_ED,
         "max_drought_regions_netto_demand_el7_winter_LENTIS_2023_PD_1600_events.csv",
     ),
 ).reset_index(drop=True)
@@ -53,21 +50,10 @@ df_events = ed.drop(["Unnamed: 0", "runs"], axis=1)
 # TODO: this find_dominant_wr can be replaced by functionality below, just sample at end_date
 df_event_wr = ut.find_dominant_wr(df_events, df_clusters, cluster_col="Bayes_cluster")
 
-
-def find_dominant_cluster(window):
-    counts = window.value_counts()
-    max_count = counts.max()
-    # Check if the maximum count is at least 4
-    if max_count >= 4:
-        return counts.idxmax()
-    # Return 5 if no cluster is dominant
-    return 5
-
-
 df_clusters["dominant_cluster"] = (
     df_clusters["Bayes_cluster"]
     .rolling(window=7, min_periods=7)
-    .apply(find_dominant_cluster, raw=False)
+    .apply(ut.find_dominant_wr_v2, raw=False)
 )
 cluster_occurrences = plt.hist(df_clusters["dominant_cluster"], bins=np.arange(7), density=True)[0]
 
@@ -155,27 +141,6 @@ def count_to_conditional(co_occur_count_df, country_order):
     return conditional, base_rates
 
 
-def region_stats(probs_table, REGIONS):
-    results = {}
-    for region in REGIONS:
-        region_countries = REGIONS[region]["countries"]
-        region_combinations = list(product(region_countries, repeat=2))
-
-        co_occurrences = np.array(
-            [probs_table.loc[pair[0], pair[1]] for pair in region_combinations],
-        )
-        co_occurrences[co_occurrences == 1] = np.nan
-        mean_co_occurrence = pd.Series(co_occurrences).mean()
-        std_co_occurrence = pd.Series(co_occurrences).std()
-
-        results[region] = {
-            "mean_co_occurrence": mean_co_occurrence,
-            "std_co_occurrence": std_co_occurrence,
-        }
-
-    return pd.DataFrame.from_dict(results, orient="index")
-
-
 def monte_carlo(counts_per_run, n_sample, n_iter, vmax=None, plot=False):
     count_per_run = pd.DataFrame(counts_per_run)
     conditional_probs = np.empty((n_iter, len(REGIONS), len(REGIONS)))
@@ -227,34 +192,17 @@ def p_value(meanprob, std, meanprob_all, std_all):
     return p_value
 
 
-# TODO: probably move these both to utils
-def get_color(country):
-    """Returns the color associated with a given country based on its regional classification dictionary."""
-    for region in REGIONS.values():
-        if country in region["countries"]:
-            return region["color"]
-    return None
-
-
-def reorder(matrix, order):
-    df_matrix = pd.DataFrame(matrix)
-
-    matrix_reordered = df_matrix.reindex(order, axis=0)
-    matrix_reordered = matrix_reordered.reindex(order, axis=1)
-    return matrix_reordered.values
-
-
 # %% CO-OCCURRENCE ANALYSIS
 if not os.path.exists(DF_CO_OCCURRENCES_FILENAME):
     print("Computing co-occurrences...")
     events_df, counts_per_run, co_occur_counts_df = get_co_occurrence(df_full=df_events, wr="all")
     co_occur_counts_df.to_csv(DF_CO_OCCURRENCES_FILENAME, index=False)
     counts_per_run = pd.DataFrame(counts_per_run)
-    counts_per_run.to_csv("counts_per_run_regions.csv")
+    counts_per_run.to_csv(os.path.join(PATH_DATA, VERSION, "counts_per_run_regions.csv"))
 else:
     print("Loading previously computed co-occurrences...")
     co_occur_counts_df = pd.read_csv(DF_CO_OCCURRENCES_FILENAME)
-    counts_per_run = pd.read_csv("counts_per_run_regions.csv")
+    counts_per_run = pd.read_csv(os.path.join(PATH_DATA, VERSION, "counts_per_run_regions.csv"))
 
 # %% MONTE CARLO SAMPLING OF CO-OCCURRENCE, FOR CONFIDENCE
 meanprob, std = monte_carlo(counts_per_run, n_sample=100, n_iter=100)
@@ -300,35 +248,14 @@ cg.cax.tick_params(labelsize=14)
 cg.cax.yaxis.set_ticks(bounds)
 row_order = cg.dendrogram_row.reordered_ind
 region_order = np.array(REGION_LIST)[row_order]
-# link = linkage(heatmap_data.values, method="complete")
 
-# plt.figure(figsize=(11, 8))
-# cg = sns.clustermap(
-#     heatmap_data.values,
-#     cmap="Reds",
-#     xticklabels=COUNTRIES,
-#     yticklabels=COUNTRIES,
-#     row_linkage=link,
-#     col_linkage=link,
-# )
-# cg.ax_heatmap.set_xticklabels(cg.ax_heatmap.get_xmajorticklabels(), fontsize=16)
-# cg.ax_heatmap.set_yticklabels(cg.ax_heatmap.get_ymajorticklabels(), fontsize=16)
-
-
-# cg.ax_col_dendrogram.set_visible(False)
-# x0, _y0, _w, _h = cg.cbar_pos
-# cg.ax_cbar.set_position([1.02, 0.06, 0.025, 0.74])
-# cg.cax.set_ylabel(r"P($E_{c,column}$|$E_{c,row}$)", size=18, rotation=90, labelpad=20)
-# cg.cax.yaxis.set_label_coords(x=3.5, y=0.5)
-# cg.cax.tick_params(labelsize=14)
-# row_order = cg.dendrogram_row.reordered_ind
 # %%
-co_occurrence_all = reorder(heatmap_data.values, row_order)
+co_occurrence_all = ut.reorder(heatmap_data.values, row_order)
 
 # %%
 plt.figure(figsize=(11, 8), dpi=300)
 cg = sns.heatmap(
-    reorder(meanprob, row_order),
+    ut.reorder(meanprob, row_order),
     cmap=cmap,
     norm=norm_cmap,
     xticklabels=region_order,
@@ -409,40 +336,32 @@ for i, wr in enumerate(wrs):
     diff = (meanprob_wr - meanprob_all) / meanprob_all
     p_val = p_value(meanprob_wr, std_wr, meanprob_all, std_all)
 
-    diff = reorder(diff, row_order)
-    meanprob_wr = reorder(meanprob_wr, row_order)
-    std_wr = reorder(std_wr, row_order)
-    std_all = reorder(std_wr, row_order)
-    meanprob_all = reorder(meanprob_all, row_order)
-    p_val = reorder(p_val, row_order)
-
-    # masked_diff_significant = np.where(p_val > 0.05, np.nan, diff)
-    masked_diff_significant = np.where(p_val > 0.05, diff, diff)
+    diff = ut.reorder(diff, row_order)
+    meanprob_wr = ut.reorder(meanprob_wr, row_order)
+    std_wr = ut.reorder(std_wr, row_order)
+    std_all = ut.reorder(std_wr, row_order)
+    meanprob_all = ut.reorder(meanprob_all, row_order)
+    p_val = ut.reorder(p_val, row_order)
 
     signal_to_noise = meanprob_wr / (2 * std_wr)
-    # signal_to_noise = reorder(signal_to_noise, row_order)
     low_snr_indices = np.where(signal_to_noise < 5)
     high_pval_indices = np.where(p_val > 0.05)
-    # masked_diff = np.where(signal_to_noise < 5, np.nan, masked_diff_significant)
-    # if base probability lower than 0.25, then changes are still not relevant. Always low co-occurrence
-    # masked_diff = np.where(meanprob_all < 0.25, np.nan, masked_diff_significant)
-    masked_diff = masked_diff_significant
 
     if np.logical_and(
-        (100 * np.nanmax(masked_diff) > np.nanmax(BOUNDS_GREY)),
-        (100 * np.nanmin(masked_diff) < np.nanmin(BOUNDS_GREY)),
+        (100 * np.nanmax(diff) > np.nanmax(BOUNDS_GREY)),
+        (100 * np.nanmin(diff) < np.nanmin(BOUNDS_GREY)),
     ):
         extend = "both"
-    elif 100 * np.nanmax(masked_diff) > np.nanmax(BOUNDS_GREY):
+    elif 100 * np.nanmax(diff) > np.nanmax(BOUNDS_GREY):
         extend = "max"
-    elif 100 * np.nanmin(masked_diff) < np.nanmin(BOUNDS_GREY):
+    elif 100 * np.nanmin(diff) < np.nanmin(BOUNDS_GREY):
         extend = "min"
     else:
         extend = "neither"
 
     plt.figure(dpi=300)
     cg = sns.heatmap(
-        100 * masked_diff,
+        100 * diff,
         vmin=-75,
         vmax=75,
         cmap=CMAP_GREY,
@@ -480,8 +399,6 @@ for i, wr in enumerate(wrs):
 # TODO: Fix risk ratio calc.
 # plot co-occurrence probabilities per WR, and calc stats per region
 
-stats_dict = {}
-
 for i, wr in enumerate(wrs):
     probs_table = co_occurrence_dict[titles[i]]["probs_table"]
 
@@ -504,7 +421,7 @@ for i, wr in enumerate(wrs):
             width=width,
             height=0.6,
             left=left,
-            color=get_color(country),
+            color=ut.get_color(country, REGIONS),
             edgecolor="black",
         )
 
@@ -527,8 +444,6 @@ for i, wr in enumerate(wrs):
     cbar = ax_heatmap.collections[0].colorbar
     plt.title(titles[i])
     plt.show()
-
-    stats_dict[titles[i]] = region_stats(probs_table, REGIONS)
 
 # %%
 # TODO: Fix reclustering for region-based approach

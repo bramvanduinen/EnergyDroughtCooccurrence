@@ -293,6 +293,17 @@ def calc_composite_mean_multipledayevent(data_rolling, df_events):
     return composite_mean
 
 
+def find_dominant_wr_v2(window):
+    counts = window.value_counts()
+    max_count = counts.max()
+    # Check if the maximum count is at least 4
+    if max_count >= 4:
+        return counts.idxmax()
+    # Return 5 if no cluster is dominant
+    return 5
+
+
+# OLD VERSION; MAKE SURE TO NOT USE THIS ONE ANYMORE AND REPLACE BY V2.
 def find_dominant_wr(df_events, df_wr, cluster_col, wri=True):
     """Identifies the dominant weather regime for each event in the events DataFrame, based
     on weather regime data. Updates the original events DataFrame with the dominant weather
@@ -374,3 +385,19 @@ def find_dominant_wr(df_events, df_wr, cluster_col, wri=True):
         df_events.at[index, "weather_regime_ids"] = relevant_weather_regimes
 
     return df_events
+
+
+def get_color(country, regions):
+    """Returns the color associated with a given country based on its regional classification dictionary."""
+    for region in regions.values():
+        if country in region["countries"]:
+            return region["color"]
+    return None
+
+
+def reorder(matrix, order):
+    df_matrix = pd.DataFrame(matrix)
+
+    matrix_reordered = df_matrix.reindex(order, axis=0)
+    matrix_reordered = matrix_reordered.reindex(order, axis=1)
+    return matrix_reordered.values

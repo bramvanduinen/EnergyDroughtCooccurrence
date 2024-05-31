@@ -6,6 +6,7 @@ PATH_ANOM = "/net/pc230050/nobackup/users/duinen/LENTIS/present/"
 PATH_ZG500 = "/net/pc230050/nobackup/users/duinen/LENTIS/present/zg500_d/"
 PATH_ZG500_ERA5 = "/net/pc230050/nobackup/users/duinen/LENTIS/ERA5/"
 PATH_PSL = "/net/pc200256/nobackup/users/most/LENTIS/present/day/psl_d"
+ED_FILENAME_REGIONS = "max_drought_regions_netto_demand_el7_winter_LENTIS_2023_PD_1600_events.csv"
 
 # constants
 CLUSTER_NAMES = ["NAO +", "NAO -", "Blocking", "Atl. Ridge"]
