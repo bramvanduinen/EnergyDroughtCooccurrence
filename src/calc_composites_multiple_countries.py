@@ -1,33 +1,32 @@
 # %%
-import utils as ut
-import plot_utils as put
-
 import os
+
+import cartopy
+import cartopy.crs as ccrs
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import plot_utils as put
+import utils as ut
 import xarray as xr
-import matplotlib.pyplot as plt
-import matplotlib.colors as colors
-from matplotlib.colors import LinearSegmentedColormap
-import cartopy.crs as ccrs
-import cartopy
+from matplotlib import colors, ticker
 from tqdm.notebook import tqdm
-from matplotlib import ticker
-from matplotlib.cm import RdBu_r
 
 # %%
 # PATH_ED = '../../energydroughts-Europe/data/'
 PATH_ED = "/usr/people/duinen/energydroughts-Europe/data/"
 ed = pd.read_csv(
-    os.path.join(PATH_ED, "netto_demand_el7_winter_LENTIS_2023_PD_1600_events.csv")
+    os.path.join(PATH_ED, "netto_demand_el7_winter_LENTIS_2023_PD_1600_events.csv"),
 ).reset_index(drop=True)
-ed["run"] = ed["runs"].str.extract("(\d+)").astype(int)
+ed["run"] = ed["runs"].str.extract(r"(\d+)").astype(int)
 df_events = ed.drop(["Unnamed: 0", "runs"], axis=1)
 
 # %%
 ANOM_PATH = "/net/pc230050/nobackup/users/duinen/LENTIS/present"
 PSL_PATH = "/net/pc200256/nobackup/users/most/LENTIS/present/day/psl_d"
-dir_Figures = "/usr/people/duinen/MSc-thesis/Results/Figures/composites_events/PD_2023_1600_multiplecountries"
+dir_Figures = (
+    "/usr/people/duinen/MSc-thesis/Results/Figures/composites_events/PD_2023_1600_multiplecountries"
+)
 dir_Data = "/net/pc230050/nobackup/users/duinen/results/event_anomalies_per_country/PD_2023_1600_multiplecountries"
 NUM_EVENTS = 1600
 # %%
@@ -43,13 +42,13 @@ def create_composite_dataset(df_events):
         df_run = df_events.query("run == @run").sort_values(["country", "start_time"])
 
         rsds_run = xr.open_dataset(
-            f"{ANOM_PATH}/rsds_d_anomaly/anom_rsds_d_ECEarth3_h{run:03d}.nc"
+            f"{ANOM_PATH}/rsds_d_anomaly/anom_rsds_d_ECEarth3_h{run:03d}.nc",
         )["rsds"]
         sfcWind_run = xr.open_dataset(
-            f"{ANOM_PATH}/sfcWind_d_anomaly/anom_sfcWind_d_ECEarth3_h{run:03d}.nc"
+            f"{ANOM_PATH}/sfcWind_d_anomaly/anom_sfcWind_d_ECEarth3_h{run:03d}.nc",
         )["sfcWind"].drop_vars("height")
         t2m_run = xr.open_dataset(
-            f"{ANOM_PATH}/tas_d_anomaly/anom_tas_d_ECEarth3_h{run:03d}.nc"
+            f"{ANOM_PATH}/tas_d_anomaly/anom_tas_d_ECEarth3_h{run:03d}.nc",
         )["tas"].drop_vars("height")
         psl_run = xr.open_dataset(f"{PSL_PATH}/psl_d_ECEarth3_h{run:03d}.nc")["psl"]
 
@@ -57,7 +56,9 @@ def create_composite_dataset(df_events):
             times_run = []
             for event, row in df_run.query("country == @country").iterrows():
                 timeseries_event = pd.date_range(
-                    start=row["start_time"], end=row["end_time"], freq="D"
+                    start=row["start_time"],
+                    end=row["end_time"],
+                    freq="D",
                 )
                 times_run.extend(timeseries_event)
 
@@ -97,7 +98,6 @@ def find_overlapping_times(composite_datasets_by_country, country_combination):
     # count_c1 = 0  # TEMPORARY
     # count_c2 = 0  # TEMPORARY
     for run in np.arange(10, 170):
-
         common_times = None
         times_country_1 = composite_datasets_by_country[country_combination[0]][
             run - 10
@@ -183,7 +183,8 @@ def meteo_overlapping_countries(country_combination):
     c1_unique_datasets = []
     c2_unique_datasets = []
     times_overlap, times_c1, times_c2 = find_overlapping_times_v2(
-        composite_datasets_by_country, country_combination
+        composite_datasets_by_country,
+        country_combination,
     )
 
     for ds in composite_datasets_by_country[country_combination[0]]:
@@ -268,10 +269,7 @@ def plot_composite_meteorology(country, composite_datasets_by_country):
         ax = axs.flat[i]
         psl_plot = psl_country / 100  # Pa to hPa
         psl_plothl = psl_plot.where(
-            (psl_plot.lon > -30)
-            & (psl_plot.lon < 33)
-            & (psl_plot.lat > 35)
-            & (psl_plot.lat < 70),
+            (psl_plot.lon > -30) & (psl_plot.lon < 33) & (psl_plot.lat > 35) & (psl_plot.lat < 70),
             drop=True,
         )
         ax.set_extent([-30, 33, 35, 70], crs=ccrs.PlateCarree())
@@ -344,10 +342,12 @@ GyYl = colors.LinearSegmentedColormap.from_list(
 
 # %%
 def plot_composite_meteorology_countrycomb(
-    country_combination, overlapping_datasets, c1_unique_dataset, c2_unique_dataset
+    country_combination,
+    overlapping_datasets,
+    c1_unique_dataset,
+    c2_unique_dataset,
 ):
     """Plot composite meteorology for overlapping, country 1 and country 2 disjoint datasets"""
-
     file_path_overlapping = f"{dir_Data}/{country_combination}_concurrent_ds.nc"
     if os.path.exists(file_path_overlapping):
         print("Overlapping dataset already exists")
@@ -379,7 +379,10 @@ def plot_composite_meteorology_countrycomb(
     lats_plot = lats[(lats < 70) & (lats > 35)]
 
     fig, axs = plt.subplots(
-        3, 3, figsize=(13.5, 9), subplot_kw={"projection": dataproj}
+        3,
+        3,
+        figsize=(13.5, 9),
+        subplot_kw={"projection": dataproj},
     )
     fig.subplots_adjust(right=0.8)
 
@@ -438,7 +441,9 @@ def plot_composite_meteorology_countrycomb(
             # ax_column1.set_ylim([lats[0], 75])
 
             norm_column1 = colors.BoundaryNorm(
-                levels_column1, ncolors=cmap.N, extend="both"
+                levels_column1,
+                ncolors=cmap.N,
+                extend="both",
             )
             im_column1 = ax_column1.contourf(
                 lons,
@@ -452,7 +457,11 @@ def plot_composite_meteorology_countrycomb(
             )
             fig.colorbar(im_column1, ax=ax_column1, label=cbar_units[i], shrink=0.75)
             CS_column1 = ax_column1.contour(
-                lons, lats, psl_plot, transform=ccrs.PlateCarree(), colors="k"
+                lons,
+                lats,
+                psl_plot,
+                transform=ccrs.PlateCarree(),
+                colors="k",
             )
             ax_column1.clabel(CS_column1, inline=True, fontsize=10)
             put.plot_maxmin_points(
@@ -501,7 +510,8 @@ def plot_composite_meteorology_countrycomb(
                 ax_column1.set_title(titles[i])
     plt.tight_layout()
     plt.savefig(
-        f"{dir_Figures}/{country_combination}_composite_meteorology.png", dpi=300
+        f"{dir_Figures}/{country_combination}_composite_meteorology.png",
+        dpi=300,
     )
 
 
@@ -561,16 +571,13 @@ for key, values in europe_neighbors.items():
     for value in values:
         pair = [key, value]
         reverse_pair = [value, key]
-        if (
-            pair not in country_combinations
-            and reverse_pair not in country_combinations
-        ):
+        if pair not in country_combinations and reverse_pair not in country_combinations:
             country_combinations.append(pair)
 
 for country_combination in tqdm(country_combinations):
     print(f"Starting {country_combination}...")
-    overlapping_datasets, c1_unique_datasets, c2_unique_datasets = (
-        meteo_overlapping_countries(country_combination)
+    overlapping_datasets, c1_unique_datasets, c2_unique_datasets = meteo_overlapping_countries(
+        country_combination
     )
     plot_composite_meteorology_countrycomb(
         country_combination,

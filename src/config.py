@@ -1,9 +1,11 @@
 # Paths
 PATH_CLUSTERS = "/usr/people/duinen/MSc-thesis/Results/clusters/"
+PATH_DATA = "/usr/people/duinen/MSc-thesis/Results/data/"
 PATH_ED = "/usr/people/duinen/MSc-thesis/src/find_energydroughts/data/"
-PATH_ANOM = "/net/pc230050/nobackup/users/duinen/LENTIS/present/zg500_anomaly/"
+PATH_ANOM = "/net/pc230050/nobackup/users/duinen/LENTIS/present/"
 PATH_ZG500 = "/net/pc230050/nobackup/users/duinen/LENTIS/present/zg500_d/"
 PATH_ZG500_ERA5 = "/net/pc230050/nobackup/users/duinen/LENTIS/ERA5/"
+PATH_PSL = "/net/pc200256/nobackup/users/most/LENTIS/present/day/psl_d"
 
 # constants
 CLUSTER_NAMES = ["NAO +", "NAO -", "Blocking", "Atl. Ridge"]
@@ -50,14 +52,13 @@ COUNTRIES = [
 ]
 
 REGIONS = {
-    "IB": ["PRT", "ESP"],
-    "NW": ["NLD", "DEU", "BEL", "DNK", "GBR", "IRL"],
-    "N": ["NOR", "SWE", "FIN"],
-    "B": ["EST", "LVA", "LTU"],
-    "C": ["AUT", "ITA", "CHE", "FRA"],
-    "E": ["POL", "HRV", "HUN", "SVN", "CZE", "SVK"],
+    "IB": {"color": "C4", "countries": ["PRT", "ESP"]},
+    "NW": {"color": "C1", "countries": ["NLD", "DEU", "BEL", "DNK", "GBR", "IRL"]},
+    "N": {"color": "C0", "countries": ["NOR", "SWE", "FIN"]},
+    "B": {"color": "cyan", "countries": ["EST", "LVA", "LTU"]},
+    "C": {"color": "C2", "countries": ["AUT", "ITA", "CHE", "FRA"]},
+    "E": {"color": "C3", "countries": ["POL", "HRV", "HUN", "SVN", "CZE", "SVK"]},
 }
-
 # Lieke
 FOLDER = "/net/pc200256//nobackup/users/most/output/LENTIS_2023_PD/agg_production/per_country/"
 RUNNAME = "LENTIS_2023_PD"
