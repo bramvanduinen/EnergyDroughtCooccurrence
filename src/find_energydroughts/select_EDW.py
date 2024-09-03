@@ -8,7 +8,8 @@ from tqdm import tqdm
 
 # Constants
 RUNS = [f"h{number:03d}" for number in range(10, 170)]
-VAR0 = "netto_demand"
+# VAR0 = "netto_demand"
+VAR0 = "residual"
 NR_OF_EVENTS = 1600  # once a year events
 SEASONS = ["winter"]
 EVENT_LENGTHS = [7]
@@ -25,6 +26,7 @@ def select_season_data(dataset, season):
     season_months = {
         "summer": [6, 7, 8, 9],
         "winter": [1, 2, 3, 11, 12],
+        "full": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
     }
     if season in season_months:
         return dataset.where(dataset.time.dt.month.isin(season_months[season]), drop=True)
@@ -118,7 +120,9 @@ def main():
             all_events_df = all_events_df.rename({"index": "event_number"}, axis=1)
             all_events_df["event_number"] += 1
 
-            filename = f"{EVENTTYPE}_v2_{VAR0}_el{event_length}_{season}_{RUNNAME}_{NR_OF_EVENTS}_events.csv"
+            filename = (
+                f"{EVENTTYPE}_{VAR0}_el{event_length}_{season}_{RUNNAME}_{NR_OF_EVENTS}_events.csv"
+            )
             output_file = os.path.join(OFOLDER, filename)
             all_events_df.to_csv(output_file)
             print(f"Saved to {output_file}")

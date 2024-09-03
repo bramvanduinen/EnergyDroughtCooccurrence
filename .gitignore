@@ -4,8 +4,13 @@ __pycache__/
 /Data/
 /.vscode/
 /src/find_energydroughts/data/
+/src/find_energydroughts_region/data/
 /src/notebooks_unused/
-/src/01_WR_clustering_Bayes_parallellized.py
+/src/old_python_country_based/
 /ERA5_downloading/
 ruff.toml
 /Trash/
+/Scripts_Karin_Lieke/
+/src/__pycache__/
+/src_v0/
+/src/notebooks_unused/

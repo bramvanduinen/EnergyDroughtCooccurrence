@@ -293,8 +293,9 @@ def calc_composite_mean_multipledayevent(data_rolling, df_events):
     return composite_mean
 
 
-def find_dominant_wr_v2(window):
-    counts = window.value_counts()
+def find_dominant_wr_v2(window_series):
+    # counts = window.value_counts()
+    counts = window_series.value_counts()
     max_count = counts.max()
     # Check if the maximum count is at least 4
     if max_count >= 4:

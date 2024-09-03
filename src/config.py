@@ -2,15 +2,17 @@
 PATH_CLUSTERS = "/usr/people/duinen/MSc-thesis/Results/clusters/"
 PATH_DATA = "/usr/people/duinen/MSc-thesis/Results/data/"
 PATH_ED = "/usr/people/duinen/MSc-thesis/src/find_energydroughts/data/"
+PATH_ED_REGIONS = "/usr/people/duinen/MSc-thesis/src/find_energydroughts_region/data/"
 PATH_ANOM = "/net/pc230050/nobackup/users/duinen/LENTIS/present/"
 PATH_ZG500 = "/net/pc230050/nobackup/users/duinen/LENTIS/present/zg500_d/"
 PATH_ZG500_ERA5 = "/net/pc230050/nobackup/users/duinen/LENTIS/ERA5/"
 PATH_PSL = "/net/pc200256/nobackup/users/most/LENTIS/present/day/psl_d"
+ED_FILENAME_COUNTRIES = "netto_demand_el7_winter_LENTIS_2023_PD_1600_events.csv"
 ED_FILENAME_REGIONS = "max_drought_regions_netto_demand_el7_winter_LENTIS_2023_PD_1600_events.csv"
+ED_FILENAME_REGIONS_RANDOM = "random_regions_netto_demand_el7_winter_LENTIS_2023_PD_1600_events.csv"
 
 # constants
-CLUSTER_NAMES = ["NAO +", "NAO -", "Blocking", "Atl. Ridge"]
-# CLUSTER_NAMES = ["Blocking", "NAO -", "NAO +", "Atl. Ridge"] # changed 2024-03-15 to match new reordering script
+CLUSTER_NAMES = ["NAO +", "NAO \u2212", "Blocking", "Atl. Ridge"]
 WINDOW = 7
 
 # clustering parameters
@@ -60,7 +62,3 @@ REGIONS = {
     "C": {"color": "C2", "countries": ["AUT", "ITA", "CHE", "FRA"]},
     "E": {"color": "C3", "countries": ["POL", "HRV", "HUN", "SVN", "CZE", "SVK"]},
 }
-# Lieke
-FOLDER = "/net/pc200256//nobackup/users/most/output/LENTIS_2023_PD/agg_production/per_country/"
-RUNNAME = "LENTIS_2023_PD"
-OFOLDER = "data/"

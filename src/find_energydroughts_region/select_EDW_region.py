@@ -88,7 +88,7 @@ def process_events(var_data, variable, event_length, num_events):
 
         timeslice = slice(min_timestamp, max_timestamp)
         events.append((max_run, timeslice))
-        timestamps.append((max_run, min_timestamp, max_timestamp))
+        timestamps.append((max_run, min_timestamp, max_timestamp, max_event.to_numpy().item()))
 
         event_data = var_data.sel(time=timeslice, runs=max_run).expand_dims("runs")
         event_data.name = "residual_event"
@@ -101,6 +101,7 @@ def process_events(var_data, variable, event_length, num_events):
 
 def main():
     """Process energy datasets."""
+    print("Event type:", EVENTTYPE)
     for season in SEASONS:
         for event_length in EVENT_LENGTHS:
             data_frames = []
@@ -129,9 +130,14 @@ def main():
                     var_data = season_data_country[VAR0]
                     data_arrays_region.append(var_data)
                 season_data = xr.concat(data_arrays_region, dim="country").sum(dim="country")
-                events, timestamps = process_events(season_data, VAR0, event_length, NR_OF_EVENTS)
+                events, timestamps = process_events(
+                    season_data,
+                    VAR0,
+                    event_length,
+                    NR_OF_EVENTS,
+                )
 
-                df = pd.DataFrame(timestamps, columns=["runs", "start_time", "end_time"])
+                df = pd.DataFrame(timestamps, columns=["runs", "start_time", "end_time", VAR0])
                 df["country"] = region_key
                 data_frames.append(df)
 
@@ -139,7 +145,7 @@ def main():
             all_events_df = all_events_df.rename({"index": "event_number"}, axis=1)
             all_events_df["event_number"] += 1
 
-            filename = f"{EVENTTYPE}_regions_{VAR0}_el{event_length}_{season}_{RUNNAME}_{NR_OF_EVENTS}_events.csv"
+            filename = f"{EVENTTYPE}_regions_{VAR0}_el{event_length}_{season}_{RUNNAME}_{NR_OF_EVENTS}_events_with_quantity.csv"
             output_file = os.path.join(OFOLDER, filename)
             all_events_df.to_csv(output_file)
             print(f"Saved to {output_file}")

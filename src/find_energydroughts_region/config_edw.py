@@ -1,8 +1,13 @@
 # config.py
 
 # Constants
-FOLDER = "/net/pc200256//nobackup/users/most/output/LENTIS_2023_PD/agg_production/per_country/"
-RUNNAME = "LENTIS_2023_PD"
+DATA_SOURCE = "ERA5"
+if DATA_SOURCE == "ERA5":
+    FOLDER = "/net/pc200256//nobackup/users/most/output/ERA5_2023_PD/agg_production/per_country/"
+    RUNNAME = "ERA5_2023_PD_noHydro"
+elif DATA_SOURCE == "LENTIS":
+    FOLDER = "/net/pc200256//nobackup/users/most/output/LENTIS_2023_PD/agg_production/per_country/"
+    RUNNAME = "LENTIS_2023_PD"
 OFOLDER = "/usr/people/duinen/MSc-thesis/src/find_energydroughts_region/data/"
 EVENTTYPE = "max_drought"
 COUNTRIES = [

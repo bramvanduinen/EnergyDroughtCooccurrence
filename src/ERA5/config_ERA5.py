@@ -2,12 +2,13 @@
 PATH_CLUSTERS = "/usr/people/duinen/MSc-thesis/Results/clusters/"
 PATH_DATA = "/usr/people/duinen/MSc-thesis/Results/data/"
 PATH_ED = "/usr/people/duinen/MSc-thesis/src/find_energydroughts/data/"
+PATH_ED_REGION = "/usr/people/duinen/MSc-thesis/src/find_energydroughts_region/data/"
 PATH_ANOM = "/net/pc230050/nobackup/users/duinen/LENTIS/present/zg500_anomaly/"
 PATH_ZG500 = "/net/pc230050/nobackup/users/duinen/LENTIS/present/zg500_d/"
 PATH_ZG500_ERA5 = "/net/pc230050/nobackup/users/duinen/LENTIS/ERA5/"
 
 # constants
-CLUSTER_NAMES = ["NAO +", "NAO -", "Blocking", "Atl. Ridge"]
+CLUSTER_NAMES = ["NAO +", "NAO \u2212", "Blocking", "Atl. Ridge"]
 # CLUSTER_NAMES = ["Blocking", "NAO -", "NAO +", "Atl. Ridge"] # changed 2024-03-15 to match new reordering script
 WINDOW = 7
 
